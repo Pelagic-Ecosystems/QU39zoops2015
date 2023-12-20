@@ -195,10 +195,14 @@ POMsi <- read.csv("raw_data/POM SI QU39 all dates surface 5m.csv", stringsAsFact
 POMsi$Date <- as.Date(POMsi$Date)
 
 # Only the year of the time series
-POMsi.2015 <- POMsi %>% filter(Date < as.Date("2015-12-31") &
-                                 Date > as.Date("2015-01-01"))
+POMsi.2015 <- POMsi %>% filter(Date < as.Date("2015-12-31"))
 colnames(POMsi.2015)[5:6] <- c("delta15n", "delta13c")
  
+# Calculate correction for first two non-acidified carbon samples 
+POMsi.2015$Del13c.diff <- POMsi.2015$delta13c.notacid -POMsi.2015$delta13c
+mean.offset <- mean(POMsi.2015$Del13c.diff[8:17])
+POMsi.2015$delta13c[1:6] <- POMsi.2015$delta13c.notacid[1:6] - mean.offset
+
 ggplot(POMsi.2015, aes(x=Date, y=delta13c)) + geom_point() + theme_bw() + 
    geom_smooth()
  
@@ -295,17 +299,18 @@ zoopSI.sm.complete[duplicated(zoopSI.sm.complete$Net_sizefrac, fromLast = T),]
 
 # Filter out data flags
 zoopSI.no.flags <- zoopSI.sm.complete
-zoopSI.no.flags <- zoopSI.no.flags[is.na(zoopSI.no.flags$C.Flag),]
-zoopSI.no.flags <- zoopSI.no.flags[is.na(zoopSI.no.flags$N.Flag),]
+zoopSI.no.flags$delta13c[!is.na(zoopSI.no.flags$C.Flag)] <- NA
+zoopSI.no.flags$delta15n[!is.na(zoopSI.no.flags$N.Flag)] <- NA
+
 
 
 # Filter to 2015 only
 # There are only a very few 64 and 125 fractions prior to March, drop them 
 # There are a very few samples from the 250 net on 5/11/15 - which I am keeping in for completeness
-zoopSI.2015 <- zoopSI.no.flags %>% filter(Date < as.Date("2015-12-31") & 
-                                   Date > as.Date("2015-03-01"))
+# zoopSI.2015 <- zoopSI.no.flags %>% filter(Date < as.Date("2015-12-31") & 
+#                                    Date > as.Date("2015-03-01"))
 
-zoopSI.2015 <- zoopSI.2015 %>% select(Date, Site.ID, Size.Fraction, delta15n, delta13c, 
+zoopSI.2015 <- zoopSI.no.flags %>% select(Date, Site.ID, Size.Fraction, delta15n, delta13c, 
                                       ug.C, ug.N, C_N)
 
 colnames(POMsi.2015.sm)[4] <- "Size.Fraction"
@@ -375,9 +380,9 @@ full.2015.wChl.biomass.new <- full.2015.wChl.biomass %>% arrange(Size.Fraction)
 full.2015.wChl.biomass.new <- full.2015.wChl.biomass.new %>% arrange(Date)
 
 
-write.csv(full.2015.wChl.biomass.new, "processed_data/QU39 2015 zoop POM FA SI Chl biomass 20230126.csv", row.names = F)
+write.csv(full.2015.wChl.biomass.new, "processed_data/QU39 2015 zoop POM FA SI Chl biomass 20231102.csv", row.names = F)
 
-full.2015.wChl.biomass.new <- read.csv("processed_data/QU39 2015 zoop POM FA SI Chl biomass 20230126.csv")
+full.2015.wChl.biomass.new <- read.csv("processed_data/QU39 2015 zoop POM FA SI Chl biomass 20231102.csv")
 
 colnames(full.2015.wChl.biomass.new)
 
@@ -394,4 +399,4 @@ full.2015.wChl.biomass.new2 <- full.2015.wChl.biomass.new %>% select(Date, Size.
                                                                     chl_20um:chl_GF.F, SumChl:Biomass.mg.m3)
 
 
-write.csv(full.2015.wChl.biomass.new2, "processed_data/QU39 2015 zoop POM FA SI Chl biomass 20230201.csv", row.names = F)
+write.csv(full.2015.wChl.biomass.new2, "processed_data/QU39 2015 zoop POM FA SI Chl biomass 20231102.csv", row.names = F)
