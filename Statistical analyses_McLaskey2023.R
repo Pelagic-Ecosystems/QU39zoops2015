@@ -10,7 +10,7 @@ library(cowplot)
 library(pairwiseAdonis)
 
 
-allData <- read.csv("processed_data/QU39 2015 zoop POM FA SI Chl biomass 20230126.csv") # keeping 5/11 250 net samples in
+allData <- read.csv("processed_data/QU39 2015 zoop POM FA SI Chl biomass 20231102.csv") # keeping 5/11 250 net samples in
 str(allData)
 allData$Date <- as.Date(allData$Date, "%Y-%m-%d")
 allData <- allData %>% filter(Date < as.Date("2015-12-31"))
@@ -18,9 +18,12 @@ allData <- allData %>% filter(Date < as.Date("2015-12-31"))
 allData$Month <- format(as.Date(allData$Date), "%m")
 allData$Month <- as.factor(allData$Month)
 allData <- allData %>% mutate(season = ifelse( Month %in% c("03","04","05"), "spring" ,
-                                                             ifelse(Month %in% c("06", "07", "08"), "summer", 
-                                                                    "fall")))
-allData$season <- factor(allData$season, levels = c("spring", "summer","fall"))
+                                               ifelse(Month %in% c("06", "07", "08"), "summer",
+                                                      ifelse(Month %in% c("09", "10", "11"), "fall",
+                                                             "winter"))))
+allData$season <- factor(allData$season, levels = c("spring", "summer","fall", "winter"))
+
+
 
 allData$Size.Fraction <- as.factor(allData$Size.Fraction)
 levels(allData$Size.Fraction)  # shows the different factor levels
@@ -54,24 +57,12 @@ allData <- allData %>%  mutate(Date2 = ifelse(Date=="2015-04-14", "2015-04-15",
 
 allData$Date <- as.Date(allData$Date, "%Y-%m-%d")
 
-# two different versions of the dataset I have used
-allData$Prop.ID <- allData$SumFA / allData$Total.FA_G_AREA
 
+# remove samples with no data
 fatty.acid.all <- allData[!is.na(allData$C16.0_PERCENT),]
+# create version of zooplankton only
 QU39.2015.64 <- fatty.acid.all[fatty.acid.all$Size.Fraction!="POM",]
 
-
-
-
-
-
-ggplot(allData, aes(x=Total.FA_G_AREA, y=SumFA)) + geom_point() + 
-  geom_abline(slope = 1, intercept = 0)
-
-
-mean(QU39.2015.64$Prop.ID)
-# 0.8553788
-# Only for the zooplankton, POMFA haven't kept the AREAs 
 
 
 
@@ -80,37 +71,14 @@ mean(QU39.2015.64$Prop.ID)
 # Fig 1 - Chl and Zoop Biomass ---------------------------------------------
 
 
-chlSumm.props.small <- allData %>% select(Date, chla_prop_GF.F, chla_prop_20um, chla_prop_3um)
+# *Chlorophyll ------------------------------------------------------------
 
-# Chl size class proportions
-# chlSumm.props.small <- Chl.2015 %>% select(Date, chla_prop_GF.F, chla_prop_20um, chla_prop_3um)
-chlSumm.props.small.long <- chlSumm.props.small %>% pivot_longer(-Date, names_to = "Size.class", values_to = "Prop")
-chlSumm.props.small.long$Size.class <- as.factor(chlSumm.props.small.long$Size.class)
-ord_size_class <- c( "chla_prop_GF.F",  "chla_prop_3um", "chla_prop_20um")
-chlSumm.props.small.long<- chlSumm.props.small.long %>%  mutate(Size.class = factor(Size.class, 
-                                                                                    levels = ord_size_class))
-
-pChl.allProps <- ggplot(chlSumm.props.small.long, aes(Date, Prop, fill=Size.class)) + geom_area() + 
-  theme_bw()+ 
-  scale_fill_manual(values=c("#c2e699","#78c679", "#006837")) + 
-  #theme(legend.position="none") +
-  labs(y=element_blank(), fill="Size Class")   + 
-  theme(legend.position = "none",
-        panel.grid.minor=element_blank(),
-        axis.title.x = element_blank(), 
-        axis.text.x = element_blank(),
-        panel.border = element_rect(linewidth = 0.3)) + 
-  scale_x_date(limits=c(as.Date("2015-01-01"), as.Date("2015-12-31")),
-               expand=c(0,0)) +  
-  scale_y_continuous(expand=c(0,0), labels = c("0", "25%", "50%", "75%", ""))  + 
-  geom_text(label="(d)", x=as.Date("2014-11-25"), y=0.98, color="black") + 
-  coord_cartesian(clip = "off") 
-pChl.allProps
-
+Chl.2015 <- allData %>% select(Date, chl_GF.F, chl_20um, chl_3um) %>% 
+  filter(Date < as.Date("2015-12-31") & Date > as.Date("2015-01-01"))
 
 
 # Chl size class concentrations
-chlSumm.concs.small <- Chl.2015 %>% select(Date, chl_GF.F, chl_20um, chl_3um)
+chlSumm.concs.small <- allData %>% select(Date, chl_GF.F, chl_20um, chl_3um)
 chlSumm.concs.small.long <- chlSumm.concs.small %>% pivot_longer(-Date, names_to = "Size.class", values_to = "Conc")
 chlSumm.concs.small.long$Size.class <- as.factor(chlSumm.concs.small.long$Size.class)
 ord_size_class <- c( "chl_GF.F",  "chl_3um", "chl_20um")
@@ -119,7 +87,8 @@ chlSumm.concs.small.long<- chlSumm.concs.small.long %>%  mutate(Size.class = fac
 
 pChl.allconcs <- ggplot(chlSumm.concs.small.long, aes(Date, Conc, fill=Size.class)) + geom_area() + 
   theme_bw()+ 
-  scale_fill_manual(values=c("#c2e699","#78c679", "#006837")) + 
+  scale_fill_manual(values=c("#c2e699","#78c679", "#006837"),
+                    labels =c("0.7", "3", "20")) + 
   labs(x=element_blank(), y=expression(paste("Chl a (",mu,"g L"^-1*")")), fill="Size Class")  + 
   theme(panel.grid.minor=element_blank(),
         legend.position = "none", 
@@ -129,7 +98,7 @@ pChl.allconcs <- ggplot(chlSumm.concs.small.long, aes(Date, Conc, fill=Size.clas
   scale_x_date(limits=c(as.Date("2015-01-01"), as.Date("2015-12-31")),
                expand=c(0,0)) +  
   scale_y_continuous(expand=c(0,0)) + 
-  geom_text(label="(c)", x=as.Date("2014-11-25"), y=19.5, color="black") + 
+  geom_text(label="(b)", x=as.Date("2014-11-20"), y=19.5, color="black") + 
   coord_cartesian(clip = "off") 
 pChl.allconcs
 
@@ -151,41 +120,48 @@ legend.Chl <- get_legend(
 
 
 
-# Zooplankton Biomass
+
+
+# *Zooplankton Biomass -------------------------------------------------------------------------
+
 
 zoop.biomass2015 <- allData %>% select(Date, Size.Fraction, Biomass.mg.m3)
 zoop.biomass2015 <- zoop.biomass2015[!is.na(zoop.biomass2015$Biomass.mg.m3),]
 zoop.biomass2015$Size.Fraction <- factor(zoop.biomass2015$Size.Fraction, levels = c("64", "125","250", "500", "1000","2000" ))
+  
 
 pZoop.biomass <- ggplot(zoop.biomass2015, aes(x=Date, y=Biomass.mg.m3, fill=Size.Fraction)) + geom_area() +
   theme_bw() + 
   labs(y=expression(paste("Biomass (mg m"^-3*")")), 
        x=element_blank()) + 
   theme(panel.grid.minor=element_blank(),
+        axis.title.x = element_blank(), 
+        axis.text.x = element_blank(),
+        legend.position = "none",
         panel.border = element_rect(linewidth = 0.3) ) + 
   scale_fill_manual(values =  c("#47ebb4", "#66ccff","#9966ff",
-                                "#db5764",  "#ff7433",  "#ffbf00")) + 
-  scale_x_date(limits=c(as.Date("2015-01-01"), as.Date("2015-12-31")),
-               expand=c(0,0)) +  
+                                         "#db5764",  "#ff7433",  "#ffbf00")) + 
+                                           scale_x_date(limits=c(as.Date("2015-01-01"), as.Date("2015-12-31")),
+                                                        expand=c(0,0)) +  
   scale_y_continuous(expand=c(0,0)) + 
-  geom_text(label="(e)", x=as.Date("2014-11-25"), y=66, color="black") + 
-  coord_cartesian(clip = "off")
+  geom_text(label="(d)", x=as.Date("2014-11-20"), y=66, color="black") + 
+  coord_cartesian(clip = "off") 
 
 pZoop.biomass
 
 
 pZoop.props <- ggplot(zoop.biomass2015, aes(x=Date, y=Biomass.mg.m3, fill=Size.Fraction)) + geom_area(position = "fill") +
-  labs(y=element_blank(), x=element_blank()) + 
+  labs(y="Biomass proportion", x=element_blank()) + 
   theme_bw() + 
   theme(panel.grid.minor=element_blank(),
         legend.position = "none" ,
         panel.border = element_rect(linewidth = 0.3)) + 
   scale_fill_manual(values =  c("#47ebb4", "#66ccff","#9966ff",
-                                "#db5764",  "#ff7433",  "#ffbf00")) + 
-  scale_x_date(limits=c(as.Date("2015-01-01"), as.Date("2015-12-31")),
-               expand=c(0,0)) +  
+                                         "#db5764",  "#ff7433",  "#ffbf00")) + 
+                                           scale_x_date(limits=c(as.Date("2015-01-01"), as.Date("2015-12-31")),
+                                                        expand=c(0,0)) +  
   scale_y_continuous(expand=c(0,0), labels = c("0", "25%", "50%", "75%", ""))  + 
-  geom_text(label="(f)", x=as.Date("2014-11-25"), y=0.98, color="black") + 
+  geom_text(label="(e)", x=as.Date("2014-11-20"), y=0.98, color="black") + 
   coord_cartesian(clip = "off") 
 
 pZoop.props
@@ -207,7 +183,7 @@ legend.Zoop <- get_legend(
 )
 
 
-png("Biomass time series Fig 2 20221212.png", width=190, height=110, units="mm", res=300)
+png("Biomass time series Fig 2 20230310.png", width=190, height=110, units="mm", res=300)
 plot_grid(pChl.allconcs, pChl.allProps, legend.Chl, 
           pZoop.biomass, pZoop.props, legend.Zoop, 
           rel_widths = c(1.5, 1.5, 0.3), nrow=2, 
@@ -215,7 +191,7 @@ plot_grid(pChl.allconcs, pChl.allProps, legend.Chl,
 dev.off()
 
 
-tiff("Biomass time series Fig 2 20220113.tiff", width=190, height=110, units="mm", res=300)
+tiff("Biomass time series Fig 2 20230310.tiff", width=190, height=110, units="mm", res=300)
 plot_grid(pChl.allconcs, pChl.allProps, legend.Chl, 
           pZoop.biomass, pZoop.props, legend.Zoop, 
           rel_widths = c(1.5, 1.5, 0.3), nrow=2, 
@@ -225,13 +201,14 @@ dev.off()
 
 
 
-# I also need POM TFA time series the same size as the Chl panel 
-# Plot the POM FA time series separately to overlay in Illustrator 
+# *POM FA time series ------------------------------------------------------
+
 
 QU39.2015.POM <- fatty.acid.all[fatty.acid.all$Size.Fraction=="POM",]
 
-p1 <- ggplot(allData, aes(x=Date, y=SumFA_ug.L, color="#734f22")) + 
-  geom_point() + theme_bw() + 
+p1 <- ggplot(QU39.2015.POM, aes(x=Date, y=SumFA_ug.L, color=Size.Fraction, fill=Size.Fraction)) + 
+  geom_point(size=2) + theme_bw() + 
+  scale_color_manual(values = c("#734f22")) + 
   scale_x_date( limits = as.Date(c("2015-01-01", "2015-12-31")),
                 expand = c(0,0)) + 
   scale_y_continuous(position="right",
@@ -252,9 +229,41 @@ p1
 
 ggsave(
   plot = p1,
-  filename = "POM FA time series 3 no smooth.png",
+  filename = "POM FA time series 3 no smooth 20230916 .png",
   bg = "transparent"
 )
+
+
+
+QU39.2015.POM$Size.Fraction <- "POM fatty acids"
+
+p2 <- ggplot(QU39.2015.POM, aes(x=Date, y=SumFA_ug.L, color=Size.Fraction, fill=Size.Fraction)) + 
+  geom_point() + theme_bw() + 
+  scale_color_manual(values = c("#734f22"), 
+                     labels = "POM FA") + 
+  scale_x_date( limits = as.Date(c("2015-01-01", "2015-12-31")),
+                expand = c(0,0)) + 
+  scale_y_continuous(position="right",
+                     expand = c(0,0), 
+                     limits = c(0,71)) + 
+  theme(panel.grid.minor=element_blank(),
+        panel.grid.major=element_blank(),
+        axis.text.x = element_blank(), 
+        panel.border = element_blank(),
+        axis.text.y = element_text(size = 14)) + 
+  labs(y = "", x="",
+       color = expression(paste("POM FA (",mu,"g L"^-1*")"))) 
+p2
+
+
+legend.TFA <- get_legend(
+  # create some space to the left of the legend
+  p2 + theme(legend.title = element_text(size=9),
+             legend.text = element_text(size = 7),
+             legend.position = c(0.45,0.6))
+)
+
+
 
 
 
@@ -276,6 +285,8 @@ allData.sm.wide <- allData.sm.agg %>% pivot_wider(values_from = delta15n, names_
 # Going to use JDay to calculate window rather than dates 
 allData.sm.wide$JDay <- format(as.Date(allData.sm.wide$Date), "%j")
 allData.sm.wide$JDay <- as.numeric(allData.sm.wide$JDay)
+# make 2014 dates negative for moving window calcs
+allData.sm.wide$JDay[allData.sm.wide$Date < as.Date("2015-01-01")] <- allData.sm.wide$JDay[allData.sm.wide$Date < as.Date("2015-01-01")] - 365
 
 
 # CAlculate 14 day moving average of POM DelN15
@@ -294,13 +305,19 @@ for(i in 1:nrow(allData.sm.wide)){
                                                              allData.sm.wide$JDay<=allData.sm.wide$JDay[i] ], na.rm = T)
 }
 
+# Use average of 2014-12-16 and 2015-01-13 POM for 2015-01-06 baseline 
+allData.sm.wide$meanPOM14[allData.sm.wide$Date==as.Date("2015-01-06")] <- 
+  mean(c(allData.sm.wide$POM[allData.sm.wide$Date==as.Date("2014-12-16")],
+  allData.sm.wide$POM[allData.sm.wide$Date==as.Date("2015-01-13")])
+)
+
 # Calculate trophic position after El-Sabaawi et al. 2009
-allData.sm.wide$TP.2000 <- ((allData.sm.wide$`2000` - allData.sm.wide$meanPOM14) / 3.5) +1
-allData.sm.wide$TP.1000 <- ((allData.sm.wide$`1000` - allData.sm.wide$meanPOM14)/ 3.5) +1
-allData.sm.wide$TP.500 <- ((allData.sm.wide$`500` - allData.sm.wide$meanPOM14)/ 3.5) +1
-allData.sm.wide$TP.250 <- ((allData.sm.wide$`250` - allData.sm.wide$meanPOM14)/ 3.5) +1
-allData.sm.wide$TP.125 <- ((allData.sm.wide$`125` - allData.sm.wide$meanPOM14)/ 3.5) +1
-allData.sm.wide$TP.64 <- ((allData.sm.wide$`64` - allData.sm.wide$meanPOM14)/ 3.5) +1
+allData.sm.wide$TP.2000 <- ((allData.sm.wide$`2000` - allData.sm.wide$meanPOM14) / 3.4) +1
+allData.sm.wide$TP.1000 <- ((allData.sm.wide$`1000` - allData.sm.wide$meanPOM14)/ 3.4) +1
+allData.sm.wide$TP.500 <- ((allData.sm.wide$`500` - allData.sm.wide$meanPOM14)/ 3.4) +1
+allData.sm.wide$TP.250 <- ((allData.sm.wide$`250` - allData.sm.wide$meanPOM14)/ 3.4) +1
+allData.sm.wide$TP.125 <- ((allData.sm.wide$`125` - allData.sm.wide$meanPOM14)/ 3.4) +1
+allData.sm.wide$TP.64 <- ((allData.sm.wide$`64` - allData.sm.wide$meanPOM14)/ 3.4) +1
 
 
 allData.sm.long <- allData.sm.wide %>% pivot_longer(TP.2000:TP.64, names_to = "Size", values_to = "TP")
@@ -350,11 +367,22 @@ colnames(QU39.2015.64.wide2)[2:7] <- paste0("TP_", colnames(QU39.2015.64.wide2)[
 QU39.2015.64.wide.all <- full_join(QU39.2015.64.wide, QU39.2015.64.wide2)
 
 
-resTP <- rcorr(as.matrix(QU39.2015.64.wide.all[2:13]), type = "spearman")
+resTP <- rcorr(as.matrix(QU39.2015.64.wide.all[c(2:25)]), type = "spearman")
 
 corrplot(resTP$r, type="lower", method="number",
-         p.mat = resTP$P, sig.level = 0.05, insig = "blank") 
+         p.mat = resTP$P, sig.level = 0.0028) 
 
+# write.csv(as.table(resTP$P), "TP corr p values.csv")
+
+
+
+# Look at normality of variables
+for(i in 2:25){
+  temp <- as.matrix(QU39.2015.64.wide.all[complete.cases(QU39.2015.64.wide.all[i]),i])
+  qqnorm(temp, main = colnames(QU39.2015.64.wide.all)[i])
+  qqline(temp)
+  
+}
 
 
 
@@ -362,7 +390,7 @@ corrplot(resTP$r, type="lower", method="number",
 
 # aggregate the multiple zooplankton nets (two 64 um nets done on same day) before I can pivot
 
-allSIdatasm2 <- allData %>% select(Date2, Size.Fraction, delta13c) 
+allSIdatasm2 <- allData %>% select( Date2, Size.Fraction, delta13c) 
 allSIdatasm2 <- allSIdatasm2[!is.na(allSIdatasm2$delta13c),]
 
 SI.agg = aggregate(allSIdatasm2[,c(3)],
@@ -373,24 +401,35 @@ colnames(SI.agg) <- c("Date", "Size.Fraction", "delta13c")
 SI.agg.wide <- SI.agg %>% pivot_wider(names_from = Size.Fraction, values_from = delta13c)
 
 
-res2<-rcorr(as.matrix(SI.agg.wide[2:8]), type = "pearson")
+res2<-rcorr(as.matrix(SI.agg.wide[2:8]), type = "spearman")
 corrplot(res2$r, type="full", method="number",
-         p.mat = res2$P, sig.level = 0.1,  tl.col = "black",
+         p.mat = res2$P, sig.level = 0.05,  tl.col = "black",
          title = "delta13c")
 
 
+# Look at normality of variables
+for(i in 2:8){
+  temp <- as.matrix(SI.agg.wide[complete.cases(SI.agg.wide[i]),i])
+  qqnorm(temp, main = colnames(SI.agg.wide)[i])
+  qqline(temp)
+}
+# Look at normality of variables
 
+write.csv(as.table(res2$r), "Del13C corr R values.csv")
 
 
 # FATM correlations -------------------------------------------------------
 
 # All FATM to test
-# C14.0_PERCENT,   C16.0_PERCENT,  C16.1n.7_PERCENT, C18.0_PERCENT,  C16.3n.4_PERCENT,  
-# C18.1n.7_PERCENT,  C18.1n.9c_PERCENT,  C18.4n.3_PERCENT,  C20.5n.3_PERCENT
-# C22.6n.3_PERCENT,  C16.2n.4_PERCENT,  Bacteria_15_17
+# C16PUFA, percent.SFA
+# C18.1n.7_PERCENT,  C18.1n.9c_PERCENT, C18.3n.3_PERCENT, C18.4n.3_PERCENT,  
+# C20.5n.3_PERCENT, C22.6n.3_PERCENT,  Bacteria_15_17, C20.4n.6_PERCENT
 
 
-fatty.acid.smer <- fatty.acid.all %>% select(Date2, Size.Fraction, Bacteria_15_17) 
+fatty.acid.smer <- fatty.acid.all %>% select(Date2, Size.Fraction, C20.4n.6_PERCENT) 
+# Galloway and Winder 2015 arcsine-square root transformed the FA proportions
+asinTransform <- function(p) { asin(sqrt(p)) }
+
 # arcsine transform FA props
 fatty.acid.smer[,3] <- asinTransform(fatty.acid.smer[,3])
 
@@ -406,8 +445,19 @@ fatty.acid.wide <- fatty.acid.agg %>% pivot_wider(names_from = Size.Fraction, va
 res2 <- rcorr(as.matrix(fatty.acid.wide[2:8]), type = "spearman")
 
 corrplot(res2$r, type="lower", method="number",
-         p.mat = res2$P, sig.level = 0.1, insig = "blank") 
+         p.mat = res2$P, sig.level = 0.05, insig = "blank") 
 
+
+
+# Look at normality of variables
+for(i in 2:8){
+  temp <- as.matrix(fatty.acid.wide[complete.cases(fatty.acid.wide[i]),i])
+  qqnorm(temp)
+  qqline(temp)
+}
+
+
+write.csv(as.table(res2$r), "ARA corr R2 values.csv")
 
 
 
@@ -489,7 +539,7 @@ pCorr2 <- TPcorrtable_all_long %>%
 
 
 
-#png("TP correlations Fig 6 20221202.png", width=150, height=45, units="mm", res=300)
+#png("TP correlations Fig 6 20231109.png", width=150, height=45, units="mm", res=300)
 pCorr2
 #dev.off()
 
@@ -505,6 +555,8 @@ pCorr2
 POMcorrtable <- read.csv("processed_data/POM FATM correlation table.csv", stringsAsFactors = FALSE)
 str(POMcorrtable)
 POMcorrtable$z.1000 <- as.character(POMcorrtable$z.1000)
+# remove 18:1n-7
+POMcorrtable <- POMcorrtable[-7,]
 
 # columns with the R2 values to base color shading on
 POMcorrtable_r <- POMcorrtable %>% select(FATM, r.64:r.2000)
@@ -526,7 +578,7 @@ POMcorrtable_all_long <- full_join(POMcorrtable_r_long, POMcorrtable_label_long)
 
 # column names for variables I want on horizontal side
 POMcorrtable_all_long$FATM
-mylevels1 <- c( "18:1w7", "DHA",  "EPA", "C16 PUFAs ", "SDA (18:4w4)", "ALA (18:3w3)","?13C ") 
+mylevels1 <- c( "SFA", "DHA",  "EPA", "C16 PUFAs ", "SDA (18:4w4)", "ALA (18:3w3)","?13C ") 
 
 mylevels2 <- c("r.64", "r.125" , "r.250","r.500","r.1000", "r.2000")
 
@@ -560,7 +612,7 @@ labels2 <- c(expression(paste(delta^{13}, "C")),
              "C16 PUFAs\ndiatoms",
              "EPA\ndiatoms",
              "DHA\ndinoflagelates",
-             "18:1\u03C97\nchlorophytes")
+             "SFA")
 
 # Making the plot
 
@@ -612,7 +664,7 @@ corrLegend <- get_legend(
 )
 
 
-png("Combined POM correlations Fig 4 20230201.png", width=180, height=130, units="mm", res=300)
+png("Combined POM correlations Fig 4 20231114.png", width=180, height=130, units="mm", res=300)
 plot_grid(pCorrPOM,corrLegend,pCorr2  ,
           rel_widths = c(1.5, 0.2), nrow=2, 
           rel_heights = c(2, 1),
@@ -621,7 +673,14 @@ plot_grid(pCorrPOM,corrLegend,pCorr2  ,
 dev.off()
 
 
+tiff("Combined POM correlations Fig 4 20231129.tif", width=180, height=130, units="mm", res=300)
+plot_grid(pCorrPOM,corrLegend,pCorr2  ,
+          rel_widths = c(1.5, 0.2), nrow=2, 
+          rel_heights = c(2, 1),
+          align = "v", 
+          axis = "l")
 
+dev.off()
 
 
 
@@ -632,7 +691,7 @@ dev.off()
 
 
 ptrophicP <- ggplot(allData.sm.long, aes(x=Date, y=TP, color=Size, fill=Size)) + 
-  geom_point() + theme_bw() + geom_smooth(se=F)  + 
+  geom_point() + theme_classic() + geom_smooth(se=F, span=0.75)  + 
   scale_color_manual(values = c("#ffbf00",  "#ff7433","#db5764",
                                 "#9966ff",  "#66ccff", "#47ebb4", "#00b300")) + 
   scale_fill_manual(values =  c("#ffbf00",  "#ff7433","#db5764",
@@ -646,50 +705,126 @@ ptrophicP <- ggplot(allData.sm.long, aes(x=Date, y=TP, color=Size, fill=Size)) +
   theme(legend.position = "none", 
         plot.margin = unit(c(0.1, 0.2, 0, 0.2), "cm"),
         panel.grid.minor = element_blank(),
-        axis.text = element_text(size=7), 
+        axis.text = element_text(size=9), 
         axis.title = element_text(size=9)) +
-  geom_text(label="(b)", x=as.Date("2014-11-13"), y=3, color="black") + 
+  geom_text(label="(c)", x=as.Date("2014-11-13"), y=3, color="black") + 
   coord_cartesian(clip = "off")
 ptrophicP
 
 
 pDel13C <- ggplot(allData, aes(x=Date, y=delta13c, color=Size.Fraction, fill=Size.Fraction)) + 
-  geom_point() + theme_bw() + geom_smooth(se=F)  + 
+  geom_point() + theme_classic() + geom_smooth(se=F)  + 
   scale_color_manual(values = c("#ffbf00",  "#ff7433","#db5764",
                                 "#9966ff",  "#66ccff", "#47ebb4", "#00b300")) + 
   scale_fill_manual(values =  c("#ffbf00",  "#ff7433","#db5764",
                                 "#9966ff",  "#66ccff", "#47ebb4", "#00b300"))  +
-  labs(y=expression(paste(delta^{13}, "C")), x="", color="" , fill="", size=7) + 
+  labs(y=expression(paste(delta^{13}, "C")), x="", color="" , fill="", size=8) + 
   scale_x_date(expand = c(0,0),
                limits = as.Date(c("2015-01-01", "2015-12-31"))) + 
-  theme(legend.position = c(0.32,0.3), legend.text = element_text(size = 6), 
+  theme(legend.position = c(0.32,0.3), legend.text = element_text(size = 7), 
         legend.background = element_rect(fill='transparent'), #transparent legend bg
         plot.margin = unit(c(0.1, 0, -0.3, 0.2), "cm"),
         panel.grid.minor = element_blank(), 
         axis.text.x = element_blank(), 
-        axis.text = element_text(size=7), 
+        axis.text = element_text(size=9), 
         axis.title = element_text(size=9), 
         legend.key.height = unit(0.35, 'cm')) +
-  geom_text(label="(a)", x=as.Date("2014-11-13"), y=-18, color="black") + 
+  geom_text(label="(b)", x=as.Date("2014-11-13"), y=-18, color="black") + 
   coord_cartesian(clip = "off")
 
 pDel13C
 
 
 
-prow <- plot_grid(pDel13C, ptrophicP, 
+
+
+pPOMFA <- ggplot(fatty.acid.all, aes(x=Date, y=SumFA_ug.L, color=Size.Fraction, fill=Size.Fraction)) + 
+  geom_point() + theme_classic() + geom_smooth(se=F)  + 
+  scale_color_manual(values = c("#ffbf00",  "#ff7433","#db5764",
+                                         "#9966ff",  "#66ccff", "#47ebb4", "#00b300")) + 
+                                           scale_fill_manual(values =  c("#ffbf00",  "#ff7433","#db5764",
+                                                                                  "#9966ff",  "#66ccff", "#47ebb4", "#00b300"))  +
+                                                                                    labs(y=expression(paste("POM FA (",mu,"g L"^-1*")")), 
+                                                                                         x="", color="" , fill="") + 
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_date(breaks = as.Date(c("2015-01-01", "2015-04-01", "2015-07-01",
+                                  "2015-10-01")),
+               labels = c("Jan", "Apr", "Jul", "Oct"),
+               limits = as.Date(c("2015-01-01", "2015-12-31")),
+               expand = c(0,0)) + 
+  theme(legend.position = "none", 
+        plot.margin = unit(c(0.1, 0, -0.3, 0.2), "cm"),
+        panel.grid.minor = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.text = element_text(size=7), 
+        axis.title = element_text(size=9), 
+        legend.key.height = unit(0.3, 'cm'), 
+        panel.background = element_rect(fill = "transparent", colour = NA),  
+        plot.background = element_rect(fill = "transparent", colour = NA),) +
+  coord_cartesian(clip = "off")
+
+pPOMFA
+
+ggsave(
+  plot = pPOMFA,
+  filename = "20230912 POM TFA time series 2.png",
+  bg = "transparent"
+)
+
+png("20230912 POM TFA time series.png", width=90, height=56, units="mm", res=300)
+pPOMFA
+dev.off()
+
+
+
+
+fatty.acid.all$Size.Fraction <- factor(fatty.acid.all$Size.Fraction, levels = c("2000", "1000","500", "250", "125","64", "POM"))
+
+
+
+
+
+
+pSumFA <- ggplot(fatty.acid.all, aes(x=Date, y=SumFA_mg.g, color=Size.Fraction, fill=Size.Fraction)) + 
+  geom_point() + theme_classic() + geom_smooth(se=F)  + 
+  scale_color_manual(values = c("#ffbf00",  "#ff7433","#db5764",
+                                         "#9966ff",  "#66ccff", "#47ebb4", "#00b300")) + 
+                                           scale_fill_manual(values =  c("#ffbf00",  "#ff7433","#db5764",
+                                                                                  "#9966ff",  "#66ccff", "#47ebb4", "#00b300"))  +
+                                                                                    labs(y=expression(paste("Total FA (",mu,"g mg"^-1*")")), 
+                                                                                         x="", color="" , fill="") + 
+  scale_y_continuous(expand = c(0,0), limits = c(0,200)) +
+  scale_x_date(breaks = as.Date(c("2015-01-01", "2015-04-01", "2015-07-01",
+                                  "2015-10-01")),
+               labels = c("Jan", "Apr", "Jul", "Oct"),
+               limits = as.Date(c("2015-01-01", "2015-12-31")),
+               expand = c(0,0)) + 
+  theme(legend.position = "none", legend.text = element_text(size = 6), 
+        legend.background = element_rect(fill='transparent'), #transparent legend bg
+        plot.margin = unit(c(0.1, 0, -0.3, 0.2), "cm"),
+        panel.grid.minor = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.text = element_text(size=7), 
+        axis.title = element_text(size=9), 
+        legend.key.height = unit(0.3, 'cm')) +
+  geom_text(label="(a)", x=as.Date("2014-11-08"), y=199, color="black") + 
+  coord_cartesian(clip = "off")
+
+pSumFA
+
+
+prow <- plot_grid(pSumFA, pDel13C, ptrophicP, 
                   align = 'v',
-                  nrow = 2,
-                  rel_heights = c(0.9,1))
+                  nrow = 3,
+                  rel_heights = c(0.9,0.9,1))
 
 prow
 
-
-
-
-png("20230201 carbon and TP time series.png", width=90, height=125, units="mm", res=300)
+png("20231108 carbon and TP time series.png", width=90, height=175, units="mm", res=300)
 prow
 dev.off()
+
+
 
 
 
@@ -704,7 +839,7 @@ asinTransform <- function(p) { asin(sqrt(p)) }
 # Make reduced data matrix of Zoop FAs
 QU39.2015.64 <- QU39.2015.64[!is.na(QU39.2015.64$C22.6n.3_PERCENT),]
 Q20.matrix <- QU39.2015.64 %>%  select(C14.0_PERCENT:C22.1n.11_PERCENT, Bacteria_15_17)
-
+Q20.matrix <- Q20.matrix %>%  select(-C24.0_PERCENT, -C22.5n.6._PERCENT)
 
 
 # What are the average contributions of each FA
@@ -721,10 +856,10 @@ names(contributions) <- c("FA", "Mean.Percentage", "Num zeros")
 # separate out peaks that are >1%
 abundant.all <- contributions$FA[contributions$Mean.Percentage>=1]
 abundant.all <- abundant.all[!is.na(abundant.all)]
+# Remove 18:2n-6 because it coeluted with 16:4n-1
 (abundant.all <- abundant.all[-c(8)])
 
-
-# remove FATM for zooplankton and 18:2n-6 because it coeluted with 16:4n-1
+# remove FATM for zooplankton 
 abundant <- abundant.all[-c(9,14,12)]
 Q20.matrix.abund <- Q20.matrix[,abundant]
 
@@ -743,7 +878,7 @@ Q20.matrix.abund.transformed <- asinTransform(Q20.matrix.abund)
 
 QU39.2015.64.sm <- QU39.2015.64[!is.na(QU39.2015.64$C16.0_PERCENT),]
 # QU39.2015.64.bySize <- QU39.2015.64.sm %>% select(Size.Fraction, C14.0_PERCENT:C22.1n.11_PERCENT, C12.0_PERCENT:Diatom.II_PERCENT)
-QU39.2015.64.bySize <- QU39.2015.64.sm %>% select(Size.Fraction, abundant.all, Prop.ID)
+QU39.2015.64.bySize <- QU39.2015.64.sm %>% select(Size.Fraction, all_of(abundant.all))
 QU39.2015.64.bySize <- QU39.2015.64.bySize[complete.cases(QU39.2015.64.bySize),]
 QU39.2015.64.bySize <- QU39.2015.64.bySize %>% mutate(SumFA=rowSums(.[c(2:16)]))
 
@@ -753,8 +888,8 @@ QU39.2015.64.bySize.grouped <- group_by(QU39.2015.64.bySize, Size.Fraction)    #
 summ.all.mean <- summarise_all(QU39.2015.64.bySize.grouped, mean)
 summ.all.sd <- summarise_all(QU39.2015.64.bySize.grouped, sd)
 
-write.csv(summ.all.sd, "20230206 FA contributions by size class sd.csv")
-write.csv(QU39.2015.64.bySize, "20230206 FA table.csv")
+# write.csv(summ.all.sd, "20230206 FA contributions by size class sd.csv")
+# write.csv(QU39.2015.64.bySize, "20230206 FA table.csv")
 
 # n for each size class
 table(QU39.2015.64.sm$Size.Fraction)
@@ -782,7 +917,7 @@ transformed_matrix <- asin(sqrt(proportions_matrix))
 #arc sine square root transformation of diet data
 
 
-set.seed(505)
+set.seed(50)
 eco.nmds.bc <- metaMDS(transformed_matrix, distance="bray",labels=Size, trymax = 100, autotransform = FALSE)
 # eco.nmds.bc <- metaMDS(transformed_matrix, distance="bray",labels=Size, trymax = 100, autotransform = FALSE, k=3)
 eco.nmds.bc[1]
@@ -812,6 +947,7 @@ colnames(sites.scores)[3:4] <- c("Size.Fraction", "Date")
 
 
 permanova_eco.bc<-adonis2(transformed_matrix ~ taxa.names*Seasons, permutations = 999, method="bray")
+permanova_eco.bc<-adonis2(transformed_matrix ~ taxa.names*Months, permutations = 999, method="bray")
 permanova_eco.bc<-adonis2(transformed_matrix ~ taxa.names, permutations = 999, method="bray")
 permanova_eco.bc #if significant, then plot it
 # significant w and wo POM
@@ -870,16 +1006,18 @@ p <- ggplot(NMDS.bc, aes(NMDS1.bc, NMDS2.bc))+
   scale_fill_manual(values=c("#ffbf00",  "#ff7433","#db5764", "#9966ff", "#66ccff", "#47ebb4"), name="Size", guide="legend") +
   guides(fill= guide_legend(override.aes = list(shape=21)))+
   scale_color_manual(values=c("#ffbf00",  "#ff7433","#db5764","#9966ff","#66ccff", "#47ebb4"), guide=FALSE) + 
-  theme_bw()+
+  theme_classic()+
   theme(axis.text.x=element_blank(),
         axis.title.x=element_text(size=9),
         axis.title.y=element_text(angle=90,size=9),
-        axis.text.y=element_text(size=8),
+        axis.text.y=element_text(size=9),
         panel.grid.minor=element_blank(),
         panel.grid.major=element_blank(),
         legend.position = "none",
-        plot.margin = unit(c(0.1, 0.1, 0, 0.1), "cm"),
-        panel.border = element_rect(linewidth = 0.3)) + 
+        plot.margin = unit(c(0.1, 0.1, 0, 0.1), "cm")
+       # panel.border = element_rect(linewidth = 0.3),
+
+  ) + 
   geom_segment(data = species.scores, aes(x = 0, xend=NMDS1*0.9, y=0, yend=NMDS2*0.9), 
                arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd=0.4) + #add vector arrows of significant species
   # geom_text(data = species.dataframe, aes(NMDS.1, NMDS.2, label=FA)) + 
@@ -938,16 +1076,16 @@ p2 <- ggplot(NMDS.bc, aes(NMDS1.bc, NMDS2.bc))+
                                "#D53E4F", "#9E0142", "#67001F", "white"), name="Month", guide="legend") +
   guides(fill= guide_legend(override.aes = list(shape=21)))+
   scale_color_manual(values=c("#ffbf00",  "#ff7433","#db5764","#9966ff","#66ccff", "#47ebb4"), guide=FALSE) + 
-  theme_bw()+
-  theme(axis.text.x=element_text(size=8),
+  theme_classic()+
+  theme(axis.text.x=element_text(size=9),
         axis.title.x=element_text(size=9),
         axis.title.y=element_text(angle=90,size=9),
-        axis.text.y=element_text(size=8),
+        axis.text.y=element_text(size=9),
         panel.grid.minor=element_blank(),
-        panel.grid.major=element_blank(),
         legend.position = "none",
-        plot.margin = unit(c(0, 0.1, 0.1, 0.1), "cm"),
-        panel.border = element_rect(linewidth = 0.3)) + 
+        panel.grid.major=element_blank(),
+        plot.margin = unit(c(0, 0.1, 0.1, 0.1), "cm")
+  ) + 
   geom_segment(data = species.scores, aes(x = 0, xend=NMDS1*0.9, y=0, yend=NMDS2*0.9), arrow = arrow(length = unit(0.2, "cm")), colour = "grey10", lwd=0.3) + #add vector arrows of significant species
   #  16:0
   annotate("text", x=species.dataframe[c(2),2]*1.2, y=(species.dataframe[c(2),3]*1.5), 
@@ -1009,8 +1147,8 @@ p2
 # SI biplot --------------------------------------------------------------
 
 allData$Size.Fraction <- as.factor(allData$Size.Fraction)
-
-allSIdata <- allData %>% select(Date, Size.Fraction, delta13c, delta15n, C_N, Month, season)
+allSIdata.sm$season
+allSIdata <- allData %>% select(Date, Size.Fraction, delta13c, delta15n, Month, season)
 allSIdata.sm <- allSIdata %>% filter(Size.Fraction != "POM")
 allSIdata.sm <- allSIdata.sm[complete.cases(allSIdata.sm),]
 taxa.names.SI <- allSIdata.sm$Size.Fraction
@@ -1021,7 +1159,7 @@ allSIdata.sm <- allSIdata.sm %>% select(delta13c, delta15n)
 allSIdata.sm$delta13c <- allSIdata.sm$delta13c * -1 
 
 permanova_SI<-adonis2(allSIdata.sm ~ taxa.names.SI, permutations = 999, method="bray")
-permanova_SI<-adonis2(allSIdata.sm ~ taxa.names.SI*seasons.SI, permutations = 999, method="bray")
+permanova_SI<-adonis2(allSIdata.sm ~ taxa.names.SI*months.SI, permutations = 999, method="bray")
 permanova_SI #if significant, then plot it
 
 
@@ -1051,6 +1189,9 @@ for(g in levels(NMDS.bc.SI$group)){
 pairwise.adonis(allSIdata.sm, taxa.names.SI)
 
 
+df_ell.bc.SI$group <- factor(df_ell.bc.SI$group, levels = c("2000", "1000","500", "250", "125","64", "POM"))
+
+NMDS.bc.SI$season <- factor(NMDS.bc.SI$season, levels = c("spring", "summer","fall", "winter"))
 
 
 pSIsizes <- ggplot(NMDS.bc.SI, aes(-NMDS1.bc, NMDS2.bc))+
@@ -1060,52 +1201,52 @@ pSIsizes <- ggplot(NMDS.bc.SI, aes(-NMDS1.bc, NMDS2.bc))+
   scale_fill_manual(values=c("#ffbf00",  "#ff7433","#db5764", "#9966ff", "#66ccff", "#47ebb4", "#00b300"), name="Size", guide="legend") +
   guides(fill= guide_legend(override.aes = list(shape=21)))+
   scale_color_manual(values=c("#ffbf00",  "#ff7433","#db5764","#9966ff","#66ccff", "#47ebb4", "#00b300"), guide=FALSE) + 
-  theme_bw()+
+  theme_classic()+
   theme(axis.text.x=element_blank(),
         axis.title.x=element_text(size=10),
         axis.title.y=element_text(angle=90,size=10),
-        axis.text.y=element_text(size=8),
+        axis.text.y=element_text(size=9),
         panel.grid.minor=element_blank(),
         panel.grid.major=element_blank(),
         legend.position = "none",
-        plot.margin = unit(c(0.1, 0.1, 0, 0.1), "cm"),
-        panel.border = element_rect(linewidth = 0.3)) + 
+        plot.margin = unit(c(0.1, 0.1, 0, 0.1), "cm")
+       #  panel.border = element_rect(linewidth = 0.3)
+        ) + 
   labs(x=element_blank(),
        y=expression(paste(delta^{15}, "N"))) +  
-  scale_shape_manual(values = c(22,24,21)) + 
-  geom_text(label="(a)", x=-25.6, y=11.75, color="black") + 
+  scale_shape_manual(values = c(22,24,21,23)) + 
+  geom_text(label="(a)", x=-27, y=12, color="black") + 
   coord_cartesian(clip = "off")
 
 pSIsizes
-#   coord_fixed() + 
 
 
-df_ell.bc.SI$group <- factor(df_ell.bc.SI$group, levels = c("2000", "1000","500", "250", "125","64", "POM"))
 
 # Colored by months
 pSImonths <- ggplot(NMDS.bc.SI, aes(-NMDS1.bc, NMDS2.bc))+
   geom_path(data=df_ell.bc.SI, aes(x=-delta13c, y=delta15n, colour=group), size=1, linetype=2) +
   geom_point(stat = "identity", aes(fill= month, shape=season), size=2)+
   #to change color: fill = other_ids
-  scale_fill_manual(values = c( "#66C2A5", "#7FBC41", 
+  scale_fill_manual(values = c( "#053061","#3288BD","#66C2A5", "#7FBC41", 
                                 "#A6D96A", "#FEE08B", "#FDAE61", "#F46D43", 
                                 "#D53E4F", "#9E0142", "#67001F", "#40004B"), name="Month", guide="legend") +
   guides(fill= guide_legend(override.aes = list(shape=c(21))))+
   scale_color_manual(values=c("#ffbf00",  "#ff7433","#db5764","#9966ff","#66ccff", "#47ebb4", "#00b300"), guide=FALSE) + 
-  theme_bw()+
-  theme(axis.text.x=element_text(size=8),
+  theme_classic()+
+  theme(axis.text.x=element_text(size=9),
         axis.title.x=element_text(size=10),
         axis.title.y=element_text(angle=90,size=10),
-        axis.text.y=element_text(size=8),
+        axis.text.y=element_text(size=9),
         panel.grid.minor=element_blank(), 
         panel.grid.major=element_blank(),
         legend.position = "none",
-        plot.margin = unit(c(0, 0.1, 0, 0.1), "cm"),
-        panel.border = element_rect(linewidth = 0.3)) + 
+        plot.margin = unit(c(0, 0.1, 0, 0.1), "cm")
+  #      panel.border = element_rect(linewidth = 0.3)
+        ) + 
   labs(x=expression(paste(delta^{13}, "C")),
        y=expression(paste(delta^{15}, "N"))) +  
-  scale_shape_manual(values = c(22,24, 21)) + 
-  geom_text(label="(c)", x=-25.6, y=11.75, color="black") + 
+  scale_shape_manual(values = c(22,24, 21,23)) + 
+  geom_text(label="(c)", x=-27, y=12, color="black") + 
   coord_cartesian(clip = "off")
 
 pSImonths
@@ -1125,19 +1266,19 @@ legend.Zoop <- get_legend(
   # create some space to the left of the legend
   pnew2 + theme(legend.title = element_text(size=9),
                 legend.text = element_text(size = 7),
-                legend.position = c(0.5,0.6))
+                legend.position = c(0.5,0.5))
 )
 
 # plot for legend 
-pnew3 <- ggplot(QU39.2015.64, aes(x=Date, y=C14.0_PERCENT)) + 
-  geom_point(aes(shape=season, color= Month)) +
+pnew3 <- ggplot(allSIdata, aes(x=Date, y=delta13c)) + 
+  geom_point(aes(color= Month)) +
   theme_bw() +  
-  scale_color_manual(values =  c("#66C2A5", "#7FBC41", 
+  scale_color_manual(values =  c("#053061","#3288BD","#66C2A5", "#7FBC41", 
                                  "#A6D96A", "#FEE08B", "#FDAE61", "#F46D43", 
                                  "#D53E4F", "#9E0142", "#67001F", "#40004B")) + 
   labs(color = "Month",
        shape = "") + 
-  scale_shape_manual(values = c(22,24, 21)) 
+  scale_shape_manual(values = c(22,24, 21,23)) 
 
 pnew3
 
@@ -1145,7 +1286,7 @@ legend.months <- get_legend(
   # create some space to the left of the legend
   pnew3 + theme(legend.title = element_text(size=9),
                 legend.text = element_text(size = 7),
-                legend.position = c(0.5,0.7))
+                legend.position = c(0.45,0.55))
 )
 
 
@@ -1162,7 +1303,7 @@ prow
 
 
 
-png("20230106 NMDS and biplot Fig 4.png", width=180, height=150, units="mm", res=300)
+png("20231109 NMDS and biplot Fig 4.png", width=180, height=150, units="mm", res=300)
 prow
 dev.off()
 
@@ -1520,6 +1661,134 @@ png("20221006 SumFA time series.png", width=120, height=100, units="mm", res=300
 pSumFA
 dev.off()
 
+
+
+
+# POM NMDS ----------------------------------------------------------------
+
+QU39.2015.POM.FA <- allData[allData$Size.Fraction=="POM",]%>% 
+  filter(!is.na(C14.0_PERCENT))
+
+POM.matrix <- QU39.2015.POM.FA %>%  select(C14.0_PERCENT:C22.1n.11_PERCENT, Bacteria_15_17)  
+
+
+# What are the average contributions of each FA
+contributions <- data.frame(matrix(nrow=ncol(POM.matrix), ncol=3))
+for(i in 1:ncol(POM.matrix)){
+  contributions[i,1] <- names(POM.matrix[i])
+  contributions[i,2] <- mean(POM.matrix[,i])*100
+  temp <- (POM.matrix[i]==0)
+  contributions[i,3] <- length(temp[temp==TRUE])
+}
+names(contributions) <- c("FA", "Mean.Percentage", "Num zeros")
+#contributions[,1] <- paste(str_remove(contributions[,1], "_PERCENT"), "", sep = "")
+# write.csv(contributions, "Q20 zoop contributions.csv", row.names = F)
+
+# separate out peaks that are >1%
+abundant.POM <- contributions$FA[contributions$Mean.Percentage>=0.9]
+abundant.POM <- abundant.POM[-c(9)]
+
+POM.matrix.abundz <- POM.matrix[,abundant.POM]
+
+colnames(POM.matrix.abundz)
+colnames(POM.matrix.abundz)  <- c('14:0', "16:0" ,"16:1n-7","16:1n-9",  "18:0", "18:1n-7", 
+                                  "18:1n-9", "18:3n-3", "18:4n-3",  "20:5n-3", "22:1n-9",
+                                  "22:6n-3", "BAFA")
+
+colnames(POM.matrix.abundz)  <- c('14:0', "16:0" ,"16:1n-7","16:1n-9",  "18:0", "16:3n-4",
+                                  "18:1n-7", "18:1n-9", "18:3n-3", "18:4n-3",  "20:5n-3", 
+                                  "22:1n-9", "22:6n-3", "16:2n-4", "BAFA")
+
+
+#create matrix for NMDS calculation:
+species.matrix.sm <- as.matrix(POM.matrix.abundz)
+#change diet dataframe into a matrix
+class(species.matrix.sm) <- "numeric"
+#make sure your numbers are treated as numbers
+proportions_matrix <- decostand(species.matrix.sm, "total")
+#calculations proportional biomass for each fish stomach
+#total = 1 so it's expressed as a decimal. It is NOT total = 100 and a percentage.
+transformed_matrix <- asin(sqrt(proportions_matrix))
+#arc sine square root transformation of diet data
+
+
+
+set.seed(505)
+eco.nmds.bc <- metaMDS(transformed_matrix, distance="bray",labels=Size, trymax = 100, autotransform = FALSE)
+# eco.nmds.bc <- metaMDS(transformed_matrix, distance="bray",labels=Size, trymax = 100, autotransform = FALSE, k=3)
+eco.nmds.bc[1]
+
+
+stressplot(eco.nmds.bc)
+
+plot(eco.nmds.bc,  type = "p")
+
+
+
+species.scores <- as.data.frame(scores(eco.nmds.bc, "species"))  #Using the scores function from vegan to extract the species scores and convert to a data.frame
+species.scores$species <- paste(str_remove(row.names(species.scores), "_PERCENT"), "", sep = "")
+
+species.scores  #look at the data
+
+# NMDS1: 22:1n-11, 15:0+17:0, 16:3n-4, 18:0
+# NMDS2: 18:1n-9, 14:0, 16:3n-4, 16:2n-4
+
+
+months <- QU39.2015.POM.FA$Month
+
+# This code is from Vanessa
+NMDS.bc<-data.frame(NMDS1.bc=eco.nmds.bc$points[,1],NMDS2.bc=eco.nmds.bc$points[,2], group=months)
+# dataframe for plotting NMDS
+ggplot(NMDS.bc, aes(months, NMDS1.bc))+
+  geom_point(stat = "identity", aes(color=months), size=2) 
+
+
+ggplot(NMDS.bc, aes(NMDS1.bc, NMDS2.bc))+
+  geom_point(stat = "identity", aes(color=group), size=2) + 
+  scale_color_manual(values = c("#66C2A5", "#7FBC41", 
+                                         "#A6D96A", "#FEE08B", "#FDAE61", "#F46D43", 
+                                         "#D53E4F", "#9E0142", "#67001F", "#40004B")) +   
+                                           geom_segment(data = species.scores, aes(x = 0, xend=NMDS1, y=0, yend=NMDS2), arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd=0.3) + #add vector arrows of significant species
+  ggrepel::geom_text_repel(data=species.scores,aes(x=NMDS1,y=NMDS2,label=species),alpha=0.5)  +  
+  theme_classic()  + 
+  labs(x="NMDS1", y="NMDS2", color="Month")
+
+
+months <- QU39.2015.POM.FA$Month
+seasons <- QU39.2015.POM.FA$season
+
+transformed_matrix <- as.matrix(transformed_matrix)
+
+
+permanova_eco.bc<-adonis2(transformed_matrix ~ months, permutations = 999, method="bray")
+permanova_eco.bc #if significant, then plot it
+
+
+permanova_eco.bc<-adonis2(transformed_matrix ~ seasons, permutations = 999, method="bray")
+permanova_eco.bc #if significant, then plot it
+
+
+QU39.2015.POM.FA$NMDS1.bc <- eco.nmds.bc$points[,1]
+QU39.2015.POM.FA$NMDS2.bc <- eco.nmds.bc$points[,2]
+
+# dataframe for plotting NMDS
+ggplot(QU39.2015.POM.FA, aes(Date, NMDS1.bc))+
+  geom_point(stat = "identity", aes(color=months), size=2) + 
+  scale_color_manual(values = c("#66C2A5", "#7FBC41", 
+                                         "#A6D96A", "#FEE08B", "#FDAE61", "#F46D43", 
+                                         "#D53E4F", "#9E0142", "#67001F", "#40004B")) +   
+                                           theme_classic()  + 
+  geom_smooth(se=F, span=0.75) + 
+  labs(y="NMDS1")
+
+ggplot(QU39.2015.POM.FA, aes(Date, NMDS2.bc))+
+  geom_point(stat = "identity", aes(color=months), size=2) + 
+  scale_color_manual(values = c("#66C2A5", "#7FBC41", 
+                                         "#A6D96A", "#FEE08B", "#FDAE61", "#F46D43", 
+                                         "#D53E4F", "#9E0142", "#67001F", "#40004B")) +   
+                                           theme_classic()  + 
+  geom_smooth(se=F) + 
+  labs(y="NMDS2")
 
 
 
